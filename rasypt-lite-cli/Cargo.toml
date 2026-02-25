@@ -1,0 +1,12 @@
+[package]
+name = "rasypt-lite-cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "rasypt-lite"
+path = "src/main.rs"
+
+[dependencies]
+rasypt-lite-lib = { path = "../rasypt-lite-lib" }
+clap = { version = "4.5.58", features = ["derive"] }

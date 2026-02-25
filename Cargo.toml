@@ -1,0 +1,37 @@
+[workspace]
+members = ["rasypt-lite-lib", "rasypt-lite-cli", "rasypt-lite-derive"]
+resolver = "2"
+
+[workspace.dependencies]
+# Third-party
+aes = "0.8"
+anyhow = "1.0"
+assert_matches = "1.5"
+async-trait = "0.1"
+base64 = "0.22"
+cbc = { version = "0.1", features = ["alloc"] }
+hmac = "0.12"
+file-rotate = "0.8"
+futures = "0.3"
+lazy_static = "1.5"
+pbkdf2 = "0.12"
+rand = "0.10"
+serde = { version = "1.0", features = ["default", "derive"] }
+serde_json = "1.0"
+serde_with = { version = "3.16", features = ["default", "chrono_0_4"] }
+serde_yml = "0.0.12"
+sha2 = "0.10"
+strum = "0.27"
+strum_macros = "0.27"
+thiserror = "2.0"
+tokio = { version = "1.49", features = ["full"] }
+tracing = "0.1"
+tracing-appender = "0.2"
+unicode-normalization = "0.1"
+zeroize = "1.6"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
