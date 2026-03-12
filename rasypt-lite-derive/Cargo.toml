@@ -13,3 +13,9 @@ proc-macro2 = "1"
 
 [dev-dependencies]
 rasypt-lite-lib = { path = "../rasypt-lite-lib" }
+
+[features]
+# automatically clear secret fields on Drop. Consumers can opt out by disabling
+# this feature; it is enabled by default.
+zeroize = []
+default = ["zeroize"]

@@ -1,6 +1,7 @@
 [workspace]
 members = ["rasypt-lite-lib", "rasypt-lite-cli", "rasypt-lite-derive"]
 resolver = "2"
+authors = ["Zenas Chen"]
 
 [workspace.dependencies]
 # Third-party
@@ -21,8 +22,8 @@ serde_json = "1.0"
 serde_with = { version = "3.16", features = ["default", "chrono_0_4"] }
 serde_yml = "0.0.12"
 sha2 = "0.10"
-strum = "0.27"
-strum_macros = "0.27"
+strum = "0.28"
+strum_macros = "0.28"
 thiserror = "2.0"
 tokio = { version = "1.49", features = ["full"] }
 tracing = "0.1"
