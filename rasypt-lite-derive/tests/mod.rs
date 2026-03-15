@@ -4,6 +4,7 @@ mod tests {
 
     #[derive(RasyptDecrypt)]
     struct DemoConfig {
+        #[rasypt(encrypted)]
         pub api_key: Option<String>, // Some("ENC(base64...)")
     }
 
@@ -20,19 +21,19 @@ mod tests {
     }
 
     #[test]
-    fn test_decrypt_error_propagation() {
+    fn test_non_tagged_fields_are_ignored() {
         #[derive(RasyptDecrypt)]
         struct BadConfig {
             pub secret: String,
         }
 
         let mut cfg = BadConfig {
-            // not an ENC(...) value; should return NotEncValue error
+            // this field is intentionally not tagged.
             secret: "not wrapped".into(),
         };
 
-        let err = cfg.decrypt_enc_fields("pwd").unwrap_err();
-        assert!(matches!(err, ::rasypt_lite_lib::Error::NotEncValue));
+        cfg.decrypt_enc_fields("pwd").expect("decrypt should no-op");
+        assert_eq!(cfg.secret, "not wrapped");
     }
 
     #[cfg(feature = "zeroize")]
@@ -40,6 +41,7 @@ mod tests {
     fn test_derive_generates_drop() {
         #[derive(RasyptDecrypt)]
         struct Foo {
+            #[rasypt(encrypted)]
             secret: String,
         }
 
@@ -52,17 +54,22 @@ mod tests {
     fn test_clear_sensitive_fields() {
         #[derive(RasyptDecrypt)]
         struct ClearDemo {
+            #[rasypt(encrypted)]
             pub api_key: Option<String>,
+            #[rasypt(encrypted)]
             pub token: String,
+            pub untouched: String,
         }
 
         let mut cfg = ClearDemo {
             api_key: Some("secret".into()),
             token: "value".into(),
+            untouched: "keep".into(),
         };
 
         cfg.clear_sensitive_fields();
         assert_eq!(cfg.api_key, None);
         assert_eq!(cfg.token, "");
+        assert_eq!(cfg.untouched, "keep");
     }
 }
