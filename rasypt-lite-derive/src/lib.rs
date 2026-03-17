@@ -120,6 +120,20 @@ pub fn rasypt_decrypt_derive(input: TokenStream) -> TokenStream {
                 }
             });
 
+    let drop_impl = if cfg!(feature = "zeroize") {
+        quote! {
+            impl #impl_generics Drop for #name #ty_generics #where_clause {
+                fn drop(&mut self) {
+                    // we deliberately don't propagate errors or attempt to recover; this
+                    // is a best-effort sanitisation performed during destruction.
+                    self.clear_sensitive_fields();
+                }
+            }
+        }
+    } else {
+        quote! {}
+    };
+
     let expanded = quote! {
         impl #impl_generics #name #ty_generics #where_clause {
             /// Decrypt all `#[rasypt(encrypted)]` fields wrapped with `ENC(...)` in-place.
@@ -139,20 +153,7 @@ pub fn rasypt_decrypt_derive(input: TokenStream) -> TokenStream {
             }
         }
 
-        // if the consumer crate enables the "zeroize" feature, automatically clear
-        // sensitive fields when the struct is dropped. the feature is enabled by
-        // default so callers who don't opt out get the safer behaviour. a panic in
-        // `clear_sensitive_fields` is considered unlikely and not worth the
-        // complexity of catching unwinds; in `panic = "abort"` profiles the
-        // call will simply execute and then the process will abort on panic.
-        #[cfg(feature = "zeroize")]
-        impl #impl_generics Drop for #name #ty_generics #where_clause {
-            fn drop(&mut self) {
-                // we deliberately don't propagate errors or attempt to recover; this
-                // is a best-effort sanitisation performed during destruction.
-                let _ = self.clear_sensitive_fields();
-            }
-        }
+        #drop_impl
     };
 
     TokenStream::from(expanded)
