@@ -177,4 +177,12 @@ mod tests {
         clear_option_string(&mut o);
         assert_eq!(o, None);
     }
+
+    #[test]
+    fn rejects_too_short_ciphertext() {
+        // 32 bytes decodes successfully but is too short for [salt(16)][iv(16)][ciphertext(>=1)].
+        let too_short = B64.encode([0u8; SALT_SIZE + IV_SIZE]);
+        let err = decrypt(&too_short, "password").unwrap_err();
+        assert!(matches!(err, Error::CiphertextTooShort));
+    }
 }

@@ -1,11 +1,17 @@
 use clap::{Parser, Subcommand};
 
+const MIN_RECOMMENDED_PASSWORD_LEN: usize = 8;
+
 #[derive(Parser)]
 #[command(
     name = "rasypt-lite",
     about = "Jasypt-compatible AES-256 encryption/decryption (PBEWITHHMACSHA512ANDAES_256)"
 )]
 struct Cli {
+    /// Silence non-fatal warnings
+    #[arg(short, long, default_value_t = false, global = true)]
+    quiet: bool,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -34,12 +40,14 @@ enum Commands {
 
 fn main() {
     let cli = Cli::parse();
+
     match cli.command {
         Commands::Encrypt {
             input,
             password,
             wrap,
         } => {
+            warn_if_password_too_short(&password, cli.quiet);
             let encrypted = rasypt_lite_lib::encrypt(&input, &password);
             if wrap {
                 println!("ENC({})", encrypted);
@@ -48,6 +56,7 @@ fn main() {
             }
         }
         Commands::Decrypt { input, password } => {
+            warn_if_password_too_short(&password, cli.quiet);
             let result = if rasypt_lite_lib::is_enc_value(&input) {
                 rasypt_lite_lib::decrypt_enc(&input, &password)
             } else {
@@ -62,4 +71,15 @@ fn main() {
             }
         }
     }
+}
+
+fn warn_if_password_too_short(password: &str, quiet: bool) {
+    if quiet || password.chars().count() >= MIN_RECOMMENDED_PASSWORD_LEN {
+        return;
+    }
+
+    eprintln!(
+        "Warning: password length is below the recommended {} characters; continuing anyway. Use --quiet to suppress this warning.",
+        MIN_RECOMMENDED_PASSWORD_LEN
+    );
 }
