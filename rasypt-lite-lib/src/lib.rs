@@ -8,8 +8,11 @@
 
 use std::string;
 
-use aes::cipher::{block_padding::Pkcs7, BlockDecryptMut, BlockEncryptMut, KeyIvInit};
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
+use cbc::cipher::{
+    block_padding::{Error as PaddingError, Pkcs7},
+    BlockModeDecrypt, BlockModeEncrypt, KeyIvInit,
+};
 use pbkdf2::pbkdf2_hmac;
 use rand::Rng;
 use sha2::Sha512;
@@ -31,7 +34,7 @@ pub enum Error {
     #[error("Failed to decode base64: {0}")]
     FailedToDecodeBase64(base64::DecodeError),
     #[error("Failed to decrypt (bad padding or wrong password): {0}")]
-    FailedToDecryptDueToBadPaddingOrWrongPassword(aes::cipher::block_padding::UnpadError),
+    FailedToDecryptDueToBadPaddingOrWrongPassword(PaddingError),
     #[error("Invalid decryption result: {0}")]
     InvalidDecryptionResult(string::FromUtf8Error),
     #[error("Not an ENC(...) value")]
@@ -65,7 +68,7 @@ pub fn encrypt_with_iterations(plaintext: &str, password: &str, iterations: u32)
     let encryptor = Aes256CbcEnc::new_from_slices(&key, &iv).unwrap();
     // zero out derived key material immediately after use
     key.zeroize();
-    let ciphertext = encryptor.encrypt_padded_vec_mut::<Pkcs7>(plaintext.as_bytes());
+    let ciphertext = encryptor.encrypt_padded_vec::<Pkcs7>(plaintext.as_bytes());
     let mut output = Vec::with_capacity(SALT_SIZE + IV_SIZE + ciphertext.len());
     output.extend_from_slice(&salt);
     output.extend_from_slice(&iv);
@@ -98,7 +101,7 @@ pub fn decrypt_with_iterations(
     // zero out derived key material as soon as possible
     key.zeroize();
     let plaintext = decryptor
-        .decrypt_padded_vec_mut::<Pkcs7>(&mut ciphertext.to_vec())
+        .decrypt_padded_vec::<Pkcs7>(ciphertext)
         .map_err(|e| Error::FailedToDecryptDueToBadPaddingOrWrongPassword(e))?;
     String::from_utf8(plaintext).map_err(|e| Error::InvalidDecryptionResult(e))
 }

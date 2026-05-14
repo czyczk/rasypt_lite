@@ -1,27 +1,31 @@
 [workspace]
 members = ["rasypt-lite-lib", "rasypt-lite-cli", "rasypt-lite-derive"]
 resolver = "2"
+
+[workspace.package]
+version = "1.0.3"
+edition = "2021"
 authors = ["Zenas Chen"]
 
 [workspace.dependencies]
 # Third-party
-aes = "0.8"
+aes = "0.9"
 anyhow = "1.0"
 assert_matches = "1.5"
 async-trait = "0.1"
 base64 = "0.22"
-cbc = { version = "0.1", features = ["alloc"] }
-hmac = "0.12"
+cbc = { version = "0.2", features = ["alloc"] }
+hmac = "0.13"
 file-rotate = "0.8"
 futures = "0.3"
 lazy_static = "1.5"
-pbkdf2 = "0.12"
+pbkdf2 = "0.13"
 rand = "0.10"
 serde = { version = "1.0", features = ["default", "derive"] }
 serde_json = "1.0"
 serde_with = { version = "3.16", features = ["default", "chrono_0_4"] }
 serde_yml = "0.0.12"
-sha2 = "0.10"
+sha2 = "0.11"
 strum = "0.28"
 strum_macros = "0.28"
 thiserror = "2.0"

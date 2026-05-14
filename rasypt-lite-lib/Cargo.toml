@@ -1,8 +1,9 @@
 [package]
 name = "rasypt-lite-lib"
-version = "1.0.2"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 description = "Jasypt-compatible PBEWithHMACSHA512AndAES_256 encryption/decryption"
+authors.workspace = true
 
 [dependencies]
 aes.workspace = true
