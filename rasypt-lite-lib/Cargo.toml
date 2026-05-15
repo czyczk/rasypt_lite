@@ -4,13 +4,14 @@ version.workspace = true
 edition.workspace = true
 description = "Jasypt-compatible PBEWithHMACSHA512AndAES_256 encryption/decryption"
 authors.workspace = true
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/czyczk/rasypt_lite"
+homepage = "https://github.com/czyczk/rasypt_lite"
 
 [dependencies]
 aes.workspace = true
-anyhow.workspace = true
 cbc.workspace = true
 pbkdf2.workspace = true
-hmac.workspace = true
 sha2.workspace = true
 rand = { workspace = true, features = ["default", "thread_rng"] }
 base64.workspace = true

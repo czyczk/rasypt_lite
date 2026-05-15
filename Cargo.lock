@@ -436,7 +436,7 @@ checksum = "63b8176103e19a2643978565ca18b50549f6101881c443590420e4dc998a3c69"
 
 [[package]]
 name = "rasypt-lite-cli"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "clap",
  "rasypt-lite-lib",
@@ -444,9 +444,8 @@ dependencies = [
 
 [[package]]
 name = "rasypt-lite-derive"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
- "proc-macro2",
  "quote",
  "rasypt-lite-lib",
  "syn",
@@ -454,13 +453,11 @@ dependencies = [
 
 [[package]]
 name = "rasypt-lite-lib"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "aes",
- "anyhow",
  "base64",
  "cbc",
- "hmac",
  "pbkdf2",
  "rand",
  "sha2",

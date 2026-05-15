@@ -3,6 +3,10 @@ name = "rasypt-lite-derive"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
+description = "Procedural macro for deriving decryption handlers with field-level Jasypt support"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/czyczk/rasypt_lite"
+homepage = "https://github.com/czyczk/rasypt_lite"
 
 [lib]
 proc-macro = true
@@ -10,10 +14,9 @@ proc-macro = true
 [dependencies]
 syn = { version = "2", features = ["full"] }
 quote = "1"
-proc-macro2 = "1"
 
 [dev-dependencies]
-rasypt-lite-lib = { path = "../rasypt-lite-lib" }
+rasypt-lite-lib = { path = "../rasypt-lite-lib", version = "1.0.4" }
 
 [features]
 # automatically clear secret fields on Drop. Consumers can opt out by disabling

@@ -3,11 +3,16 @@ name = "rasypt-lite-cli"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
+description = "CLI tool for Jasypt-compatible encryption/decryption"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/czyczk/rasypt_lite"
+homepage = "https://github.com/czyczk/rasypt_lite"
 
 [[bin]]
 name = "rasypt-lite"
 path = "src/main.rs"
 
 [dependencies]
-rasypt-lite-lib = { path = "../rasypt-lite-lib" }
+rasypt-lite-lib = { path = "../rasypt-lite-lib", version = "1.0.4" }
+
 clap = { version = "4.6.1", features = ["derive"] }
