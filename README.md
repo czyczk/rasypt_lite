@@ -1,100 +1,108 @@
 # rasypt-lite
 
-`rasypt-lite` is a small Rust implementation of the Jasypt
-[PBEWithHMACSHA512AndAES_256](https://www.jasypt.org/) encryption scheme. It
-consists of three crates in this workspace:
+Password-based encryption library and CLI supporting multiple algorithms:
 
-- **`rasypt-lite-lib`** – the core library providing `encrypt`, `decrypt`,
-  helpers for handling `ENC(...)` wrappers and utilities for zeroizing
-  sensitive `String` values.
-- **`rasypt-lite-cli`** – a simple command‑line tool built on top of the
-  library for encrypting/decrypting from the shell.
-- **`rasypt-lite-derive`** – a procedural macro crate that can derive
-  `RasyptDecrypt` for structs, adding methods that will decrypt
-  `ENC(...)`‑wrapped `String`/`Option<String>` fields explicitly tagged with
-  `#[rasypt(encrypted)]`, and optionally zero them on drop.
+| Algorithm | Default | Cipher | Auth | Standard |
+|---|---|---|---|---|
+| `PBEWithHMACSHA512AndAES_256` | yes | AES-256-CBC | — | Jasypt 3.x |
+| `PBEWithHMACSM3AndSM4_GCM` | — | SM4-GCM | AEAD + HMAC-SM3 key commit | GM/T 0091† |
+| `PBEWithHMACSM3AndSM4_CBC` | — | SM4-CBC | Encrypt-then-HMAC-SM3 | GM/T 0091-2020 |
 
-This README provides the minimal information needed to get started. See the
-`README.md` files inside the `rasypt-lite-cli` and `rasypt-lite-derive` folders
-for more detailed examples and CLI/derive‑specific documentation.
+† GCM mode is a modern extension to the PBES2 framework.
+
+Three crates in this workspace:
+
+- **`rasypt-lite-lib`** — core library: `encrypt`, `decrypt`, `ENC(...)` helpers, secure memory zeroing.
+- **`rasypt-lite-cli`** — CLI tool with `--algorithm` / `-a` and `--iterations`.
+- **`rasypt-lite-derive`** — proc macro `#[derive(RasyptDecrypt)]` for struct field decryption.
 
 ---
 
 ## Basic library usage
 
-Add the library to your `Cargo.toml`:
-
 ```toml
 [dependencies]
-rasypt-lite-lib = "0.1"
+rasypt-lite-lib = "1"
 ```
-
-Encrypt and decrypt strings with a password:
 
 ```rust
-use rasypt_lite_lib::{encrypt, decrypt};
+use rasypt_lite_lib::{encrypt_with, decrypt_with, Algorithm};
 
-let passwd = "secret";
-let plaintext = "hello world";
-
-let ciphertext = encrypt(plaintext, passwd);
-assert_ne!(ciphertext, plaintext);
-
-let decrypted = decrypt(&ciphertext, passwd).expect("decryption failed");
-assert_eq!(decrypted, plaintext);
+let ciphertext = encrypt_with(Algorithm::PBEWithHMACSM3AndSM4_GCM, "password", "hello world");
+let plaintext = decrypt_with(Algorithm::PBEWithHMACSM3AndSM4_GCM, "password", &ciphertext).unwrap();
+assert_eq!(plaintext, "hello world");
 ```
 
-You can also wrap values in `ENC(...)` manually or via helper functions, e.g.
-`encrypt(plaintext, passwd)` returns the base64 blob that you can feed to
-`decrypt_enc`.
+The default algorithm is `PBEWithHMACSHA512AndAES_256` for backward compatibility:
 
-## Command‑line tool (CLI)
+```rust
+use rasypt_lite_lib::{encrypt, decrypt};  // always uses AES-256-CBC
 
-The CLI can be used to encrypt/decrypt values from the shell. The simplest
-usage is:
-
-```sh
-# encrypt a password
-rasypt-lite encrypt --password mypass "super secret"
-
-# decrypt
-rasypt-lite decrypt --password mypass "ENC(abcd...)"
+let ct = encrypt("pass", "plain");
+let pt = decrypt("pass", &ct).unwrap();
 ```
 
-For more options (iteration count, reading from files, etc.) refer to the
-[CLI README](rasypt-lite-cli/README.md).
+### Algorithm defaults
+
+| Algorithm | Iterations | Key size |
+|---|---|---|
+| `PBEWithHMACSHA512AndAES_256` | 1,000 | 256-bit |
+| `PBEWithHMACSM3AndSM4_GCM` | 10,000 | 128-bit |
+| `PBEWithHMACSM3AndSM4_CBC` | 10,000 | 128-bit |
+
+Override iterations with `encrypt_with_iterations` / `decrypt_with_iterations`.
+
+---
+
+## CLI
+
+```
+rasypt-lite encrypt --input "secret" --password "mypass" --algorithm PBEWithHMACSM3AndSM4_GCM
+rasypt-lite decrypt --input "base64..." --password "mypass" --algorithm PBEWithHMACSM3AndSM4_GCM
+```
+
+| Flag | Short | Description |
+|---|---|---|
+| `--algorithm` | `-a`, `--alg` | Algorithm name (default: `PBEWithHMACSHA512AndAES_256`) |
+| `--iterations` | — | Override PBKDF2 iteration count |
+| `--wrap` | — | Wrap output in `ENC(...)` (AES only) |
+| `--quiet` | `-q` | Silence password warnings |
+
+---
 
 ## Derive macro
-
-If you have a configuration struct or similar that contains encrypted values
-wrapped with `ENC(...)`, you can automatically decrypt and clear them:
 
 ```rust
 use rasypt_lite_derive::RasyptDecrypt;
 
 #[derive(RasyptDecrypt)]
 struct Config {
-    username: String,
-    #[rasypt(encrypted)]
-    api_key: Option<String>,
     #[rasypt(encrypted)]
     secret: String,
 }
-
-let mut cfg = Config {
-    username: "plain-user".into(),
-    api_key: Some("ENC(...base64...)".into()),
-    secret: "ENC(...)".into(),
-};
-cfg.decrypt_enc_fields("password")?;
-// tagged values are now plaintext; untagged fields are unchanged
 ```
 
-The derive crate also provides `clear_sensitive_fields()` and, by default, a
-`Drop` impl that zeroizes the fields when the struct is dropped. See
-[`rasypt-lite-derive/README.md`](rasypt-lite-derive/README.md) for the full
-documentation and additional examples.
+The derive macro works with `ENC(...)`-wrapped values (AES algorithm). See [`rasypt-lite-derive/README.md`](rasypt-lite-derive/README.md).
 
 ---
 
-_Project maintained as part of a Rust workbook._
+# Compatibility
+
+- The default of `PBEWithHMACSHA512AndAES_256` is fully compatible with Jasypt.
+- The SM-based alternatives provide better security but do not exist in Jasypt, so no Jasypt compatibility guaranteed. The default is sufficient for quick-launching apps.
+
+---
+
+## Security
+
+- **SM4-GCM**: Authenticated encryption (AEAD) with 128-bit GCM tag. HMAC-SM3 key commitment defends against partitioning oracle attacks.
+- **SM4-CBC**: Encrypt-then-MAC. MAC verified before decryption (constant-time). Separate encryption and MAC keys.
+- **Constant-time**: All MAC/tag comparisons use the `subtle` crate. Single generic error for all decryption failures — no oracle leakage.
+- **Key derivation**: PBKDF2 with 10,000 iterations default (SM algorithms, matches GM/T 0091-2020). Override with `--iterations` for higher counts (600,000 recommended for production). NFC-normalized passwords. Key material zeroized after use.
+- **Salt**: 16 bytes (128-bit) from OS CSPRNG, fresh per encryption.
+
+---
+
+## License
+
+MIT OR Apache-2.0

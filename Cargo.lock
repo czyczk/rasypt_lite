@@ -127,9 +127,9 @@ dependencies = [
 
 [[package]]
 name = "cipher"
-version = "0.5.1"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e34d8227fe1ba289043aeb13792056ff80fd6de1a9f49137a5f499de8e8c78ea"
+checksum = "e8cf2a2c93cd704877c0858356ed03480ff301ee950b43f1cbe4573b088bfa6c"
 dependencies = [
  "crypto-common",
  "inout",
@@ -210,9 +210,9 @@ dependencies = [
 
 [[package]]
 name = "crypto-common"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77727bb15fa921304124b128af125e7e3b968275d1b108b379190264f4423710"
+checksum = "ce6e4c961d6cd6c9a86db418387425e8bdeaf05b3c8bc1411e6dca4c252f1453"
 dependencies = [
  "hybrid-array",
 ]
@@ -262,6 +262,15 @@ dependencies = [
  "rand_core",
  "wasip2",
  "wasip3",
+]
+
+[[package]]
+name = "ghash"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2eecf2d5dc9b66b732b97707a0210906b1d30523eb773193ab777c0c84b3e8d5"
+dependencies = [
+ "polyval",
 ]
 
 [[package]]
@@ -384,6 +393,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "polyval"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7dfc63250416fea14f5749b90725916a6c903f599d51cb635aa7a52bfd03eede"
+dependencies = [
+ "cpubits",
+ "cpufeatures",
+ "universal-hash",
+]
+
+[[package]]
 name = "prettyplease"
 version = "0.2.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -458,9 +478,15 @@ dependencies = [
  "aes",
  "base64",
  "cbc",
+ "ghash",
+ "hmac",
  "pbkdf2",
  "rand",
  "sha2",
+ "sm3",
+ "sm4",
+ "strum",
+ "subtle",
  "thiserror",
  "unicode-normalization",
  "zeroize",
@@ -526,10 +552,55 @@ dependencies = [
 ]
 
 [[package]]
+name = "sm3"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da6a89ba31723d185fd7413b98c576a575f356d9b84729d8ecb6ead60000a5b6"
+dependencies = [
+ "digest",
+]
+
+[[package]]
+name = "sm4"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ff2d621883cdeeaee6759d39f4bc8cd314b29db72b6ac3d6714b31422512ee11"
+dependencies = [
+ "cipher",
+]
+
+[[package]]
 name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
+
+[[package]]
+name = "strum"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9628de9b8791db39ceda2b119bbe13134770b56c138ec1d3af810d045c04f9bd"
+dependencies = [
+ "strum_macros",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab85eea0270ee17587ed4156089e10b9e6880ee688791d45a905f5b1ca36f664"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "subtle"
+version = "2.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "syn"
@@ -603,6 +674,16 @@ name = "unicode-xid"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
+
+[[package]]
+name = "universal-hash"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4987bdc12753382e0bec4a65c50738ffaabc998b9cdd1f952fb5f39b0048a96"
+dependencies = [
+ "crypto-common",
+ "ctutils",
+]
 
 [[package]]
 name = "utf8parse"
