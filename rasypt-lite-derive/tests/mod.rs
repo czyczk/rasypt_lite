@@ -72,4 +72,52 @@ mod tests {
         assert_eq!(cfg.token, "");
         assert_eq!(cfg.untouched, "keep");
     }
+
+    #[test]
+    fn test_algorithm_param() {
+        use rasypt_lite_lib::{encrypt_with, Algorithm};
+
+        #[derive(RasyptDecrypt)]
+        struct SmConfig {
+            #[rasypt(encrypted, algorithm = "PBEWithHMACSM3AndSM4_GCM")]
+            pub secret: String,
+        }
+
+        let ct = encrypt_with(
+            Algorithm::PBEWithHMACSM3AndSM4_GCM,
+            "password",
+            "hello sm4-gcm",
+        );
+        let mut cfg = SmConfig {
+            secret: format!("ENC({})", ct),
+        };
+
+        cfg.decrypt_enc_fields("password").expect("decrypt failed");
+        assert_eq!(cfg.secret, "hello sm4-gcm");
+    }
+
+    #[test]
+    fn test_mixed_algorithms() {
+        use rasypt_lite_lib::{encrypt_with, Algorithm};
+
+        #[derive(RasyptDecrypt)]
+        struct MixedConfig {
+            #[rasypt(encrypted)]
+            pub aes_field: String,
+            #[rasypt(encrypted, algorithm = "PBEWithHMACSM3AndSM4_GCM")]
+            pub sm_field: String,
+        }
+
+        let aes_ct = encrypt_with(Algorithm::PBEWithHMACSHA512AndAES_256, "pass", "aes-value");
+        let sm_ct = encrypt_with(Algorithm::PBEWithHMACSM3AndSM4_GCM, "pass", "sm-value");
+
+        let mut cfg = MixedConfig {
+            aes_field: format!("ENC({})", aes_ct),
+            sm_field: format!("ENC({})", sm_ct),
+        };
+
+        cfg.decrypt_enc_fields("pass").expect("decrypt failed");
+        assert_eq!(cfg.aes_field, "aes-value");
+        assert_eq!(cfg.sm_field, "sm-value");
+    }
 }

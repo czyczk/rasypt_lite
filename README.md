@@ -82,7 +82,8 @@ struct Config {
 }
 ```
 
-The derive macro works with `ENC(...)`-wrapped values (AES algorithm). See [`rasypt-lite-derive/README.md`](rasypt-lite-derive/README.md).
+The derive macro supports an optional `algorithm` parameter for SM algorithms.
+See [`rasypt-lite-derive/README.md`](rasypt-lite-derive/README.md).
 
 ---
 

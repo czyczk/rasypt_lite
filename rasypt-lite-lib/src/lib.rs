@@ -429,7 +429,7 @@ pub fn encrypt_with_iterations(
             rng.fill_bytes(&mut salt);
             let mut nonce = [0u8; SM4_GCM_NONCE_SIZE];
             rng.fill_bytes(&mut nonce);
-            let dk = derive_sm_keys::<SM4_GCM_DK_LEN>(password, &salt, iterations);
+            let mut dk = derive_sm_keys::<SM4_GCM_DK_LEN>(password, &salt, iterations);
             let enc_key: &[u8; SM4_KEY_SIZE] = dk[..SM4_KEY_SIZE].try_into().unwrap();
             let commit_key: &[u8; HMAC_SM3_OUTPUT] =
                 dk[SM4_KEY_SIZE..SM4_GCM_DK_LEN].try_into().unwrap();
@@ -437,8 +437,8 @@ pub fn encrypt_with_iterations(
             let (ciphertext, tag) =
                 sm4_gcm_encrypt(enc_key, &nonce, &salt, plaintext.as_bytes());
 
-            // Key commitment: HMAC-SM3(commit_key, salt || nonce || ciphertext || tag)
             let commitment = hmac_sm3_sign(commit_key, &[&salt, &nonce, &ciphertext, &tag]);
+            dk.zeroize();
 
             let mut output = Vec::with_capacity(
                 SALT_SIZE + SM4_GCM_NONCE_SIZE + ciphertext.len() + SM4_GCM_TAG_SIZE + HMAC_SM3_OUTPUT,
@@ -455,12 +455,13 @@ pub fn encrypt_with_iterations(
             rng.fill_bytes(&mut salt);
             let mut iv = [0u8; SM4_BLOCK_SIZE];
             rng.fill_bytes(&mut iv);
-            let dk = derive_sm_keys::<SM4_CBC_DK_LEN>(password, &salt, iterations);
+            let mut dk = derive_sm_keys::<SM4_CBC_DK_LEN>(password, &salt, iterations);
             let enc_key: &[u8; SM4_KEY_SIZE] = dk[..SM4_KEY_SIZE].try_into().unwrap();
             let mac_key: &[u8; HMAC_SM3_OUTPUT] =
                 dk[SM4_KEY_SIZE..SM4_CBC_DK_LEN].try_into().unwrap();
 
             let (ciphertext, mac) = sm4_cbc_encrypt(enc_key, mac_key, &iv, plaintext.as_bytes());
+            dk.zeroize();
 
             let mut output = Vec::with_capacity(
                 SALT_SIZE + SM4_BLOCK_SIZE + ciphertext.len() + HMAC_SM3_OUTPUT,
@@ -514,18 +515,20 @@ pub fn decrypt_with_iterations(
             let tag: &[u8; SM4_GCM_TAG_SIZE] = data[tag_start..commitment_start].try_into().unwrap();
             let ciphertext = &data[SALT_SIZE + SM4_GCM_NONCE_SIZE..tag_start];
 
-            let dk = derive_sm_keys::<SM4_GCM_DK_LEN>(password, salt, iterations);
+            let mut dk = derive_sm_keys::<SM4_GCM_DK_LEN>(password, salt, iterations);
             let enc_key: &[u8; SM4_KEY_SIZE] = dk[..SM4_KEY_SIZE].try_into().unwrap();
             let commit_key: &[u8; HMAC_SM3_OUTPUT] =
                 dk[SM4_KEY_SIZE..SM4_GCM_DK_LEN].try_into().unwrap();
 
-            // Verify key commitment first (constant-time)
-            if !hmac_sm3_verify(commit_key, &[salt, nonce, ciphertext, tag], received_commitment) {
-                return Err(Error::DecryptionFailed);
-            }
-
-            let plaintext = sm4_gcm_decrypt(enc_key, nonce, salt, ciphertext, tag)?;
-            String::from_utf8(plaintext).map_err(|_| Error::DecryptionFailed)
+            let result = (|| {
+                if !hmac_sm3_verify(commit_key, &[salt, nonce, ciphertext, tag], received_commitment) {
+                    return Err(Error::DecryptionFailed);
+                }
+                let plaintext = sm4_gcm_decrypt(enc_key, nonce, salt, ciphertext, tag)?;
+                String::from_utf8(plaintext).map_err(|_| Error::DecryptionFailed)
+            })();
+            dk.zeroize();
+            result
         }
         Algorithm::PBEWithHMACSM3AndSM4_CBC => {
             let min_len = SALT_SIZE + SM4_BLOCK_SIZE + 1 + HMAC_SM3_OUTPUT;
@@ -540,13 +543,17 @@ pub fn decrypt_with_iterations(
             let expected_mac: &[u8; HMAC_SM3_OUTPUT] = data[mac_start..].try_into().unwrap();
             let ciphertext = &data[SALT_SIZE + SM4_BLOCK_SIZE..mac_start];
 
-            let dk = derive_sm_keys::<SM4_CBC_DK_LEN>(password, salt, iterations);
+            let mut dk = derive_sm_keys::<SM4_CBC_DK_LEN>(password, salt, iterations);
             let enc_key: &[u8; SM4_KEY_SIZE] = dk[..SM4_KEY_SIZE].try_into().unwrap();
             let mac_key: &[u8; HMAC_SM3_OUTPUT] =
                 dk[SM4_KEY_SIZE..SM4_CBC_DK_LEN].try_into().unwrap();
 
-            let plaintext = sm4_cbc_decrypt(enc_key, mac_key, iv, ciphertext, expected_mac)?;
-            String::from_utf8(plaintext).map_err(|_| Error::DecryptionFailed)
+            let result = (|| {
+                let plaintext = sm4_cbc_decrypt(enc_key, mac_key, iv, ciphertext, expected_mac)?;
+                String::from_utf8(plaintext).map_err(|_| Error::DecryptionFailed)
+            })();
+            dk.zeroize();
+            result
         }
     }
 }
@@ -555,10 +562,19 @@ pub fn decrypt_with_iterations(
 
 /// Unwrap an `ENC(...)` value and decrypt it using the default AES-256-CBC algorithm.
 pub fn decrypt_enc(value: &str, password: &str) -> Result<String, Error> {
+    decrypt_enc_with(Algorithm::default(), value, password)
+}
+
+/// Unwrap an `ENC(...)` value and decrypt it with the given algorithm.
+pub fn decrypt_enc_with(
+    algorithm: Algorithm,
+    value: &str,
+    password: &str,
+) -> Result<String, Error> {
     let trimmed = value.trim();
     if trimmed.starts_with("ENC(") && trimmed.ends_with(')') {
         let inner = &trimmed[4..trimmed.len() - 1];
-        decrypt(password, inner)
+        decrypt_with(algorithm, password, inner)
     } else {
         Err(Error::NotEncValue)
     }
@@ -789,6 +805,60 @@ mod tests {
         let result =
             decrypt_with(Algorithm::PBEWithHMACSM3AndSM4_CBC, TEST_PASSWORD, &gcm_enc);
         assert!(result.is_err());
+    }
+
+    // ── RFC 8998 Appendix A.1 SM4-GCM test vector ──────────────
+
+    fn decode_hex<const N: usize>(s: &str) -> [u8; N] {
+        let clean: String = s.chars().filter(|c| !c.is_whitespace()).collect();
+        let mut r = [0u8; N];
+        for i in 0..N {
+            r[i] = u8::from_str_radix(&clean[i * 2..i * 2 + 2], 16).unwrap();
+        }
+        r
+    }
+
+    fn decode_hex_vec(s: &str) -> Vec<u8> {
+        let clean: String = s.chars().filter(|c| !c.is_whitespace()).collect();
+        (0..clean.len() / 2)
+            .map(|i| u8::from_str_radix(&clean[i * 2..i * 2 + 2], 16).unwrap())
+            .collect()
+    }
+
+    #[test]
+    fn sm4_gcm_rfc8998_test_vector() {
+        let key: [u8; 16] = decode_hex("0123456789ABCDEFFEDCBA9876543210");
+        let nonce: [u8; 12] = decode_hex("00001234567800000000ABCD");
+        let plaintext = decode_hex_vec(
+            "\
+            AAAAAAAA AAAAAAAA BBBBBBBB BBBBBBBB \
+            CCCCCCCC CCCCCCCC DDDDDDDD DDDDDDDD \
+            EEEEEEEE EEEEEEEE FFFFFFFF FFFFFFFF \
+            EEEEEEEE EEEEEEEE AAAAAAAA AAAAAAAA",
+        );
+        let aad = decode_hex_vec("FEEDFACEDEADBEEFFEEDFACEDEADBEEFABADDAD2");
+        let expected_ct = decode_hex_vec(
+            "\
+            17F399F0 8C67D5EE 19D0DC99 69C4BB7D \
+            5FD46FD3 75648906 9157B282 BB200735 \
+            D82710CA 5C22F0CC FA7CBF93 D496AC15 \
+            A56834CB CF98C397 B4024A26 91233B8D",
+        );
+        let expected_tag: [u8; 16] = decode_hex("83DE3541E4C2B58177E065A9BF7B62EC");
+
+        let (ciphertext, tag) = sm4_gcm_encrypt(&key, &nonce, &aad, &plaintext);
+
+        assert_eq!(
+            ciphertext, expected_ct,
+            "Ciphertext mismatch.\nGot:      {}\nExpected: {}",
+            ciphertext.iter().map(|b| format!("{:02X}", b)).collect::<Vec<_>>().join(""),
+            expected_ct.iter().map(|b| format!("{:02X}", b)).collect::<Vec<_>>().join(""),
+        );
+        assert_eq!(tag, expected_tag, "Tag mismatch");
+
+        // Decrypt round-trip
+        let decrypted = sm4_gcm_decrypt(&key, &nonce, &aad, &ciphertext, &tag).unwrap();
+        assert_eq!(decrypted, plaintext);
     }
 
     // ── Memory helpers ─────────────────────────────────────────

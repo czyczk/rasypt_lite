@@ -1,76 +1,67 @@
 # rasypt-lite-derive
 
-Procedural macro crate that provides `#[derive(RasyptDecrypt)]`.
+Procedural macro `#[derive(RasyptDecrypt)]` for structs with encrypted fields.
 
-When you derive `RasyptDecrypt` on a struct it generates two public methods
-and, when the `zeroize` feature is enabled (the default), a `Drop`
-implementation:
+When derived, the struct gains:
 
 - `decrypt_enc_fields(&mut self, password: &str) -> Result<(), Error>` — walks
-  every field marked with `#[rasypt(encrypted)]` and if the value is wrapped with
-  `ENC(...)` it will attempt to decrypt it, returning the first error
-  encountered. Untagged fields are ignored.
-- `clear_sensitive_fields(&mut self)` — zeroizes/clears all `String` and
-  `Option<String>` fields marked with `#[rasypt(encrypted)]`; useful to call manually
-  when you want to remove secrets.
-- `Drop` impl (behind `zeroize` feature) — automatically calls
-  `clear_sensitive_fields()` during destruction so that secrets are erased
-  when the value goes out of scope.
+  fields tagged `#[rasypt(encrypted)]`, checks for `ENC(...)` wrapping, and
+  decrypts them in-place.
+- `clear_sensitive_fields(&mut self)` — zeroizes tagged `String` and
+  `Option<String>` fields.
+- `Drop` impl (when `zeroize` feature is enabled, the default) — calls
+  `clear_sensitive_fields()` on drop.
 
-## Simple example
+**Algorithm note:** The default is `PBEWithHMACSHA512AndAES_256`.
+Specify a different algorithm per field with
+`#[rasypt(encrypted, algorithm = "PBEWithHMACSM3AndSM4_GCM")]`. The value must
+be a valid [`Algorithm`](rasypt_lite_lib::Algorithm) variant name. Different
+fields can use different algorithms.
+
+## Example
 
 ```rust
 use rasypt_lite_derive::RasyptDecrypt;
 
 #[derive(RasyptDecrypt)]
 struct Config {
-    pub username: String,
+    username: String,
+
+    // AES-256-CBC (default)
     #[rasypt(encrypted)]
-    pub password: Option<String>,
+    password: Option<String>,
+
+    // SM4-GCM
+    #[rasypt(encrypted, algorithm = "PBEWithHMACSM3AndSM4_GCM")]
+    api_key: String,
 }
 
 let mut cfg = Config {
     username: "user".into(),
     password: Some("ENC(...)".into()),
+    api_key: "ENC(...)".into(),
 };
 
-// decrypt tagged encrypted fields
 cfg.decrypt_enc_fields("mypassword")?;
+// cfg.password and cfg.api_key are now decrypted
 
-// optional: clear them when you're finished
 cfg.clear_sensitive_fields();
+// tagged fields zeroized
+```
 ```
 
-The macro currently only supports named struct fields and will panic at
-compile time if applied to tuple structs, enums, or other unsupported types.
+## Supported field types
 
-## Field attribute
-
-Use `#[rasypt(encrypted)]` only on `String` or `Option<String>` fields that may
-contain `ENC(...)` values:
-
-```rust
-use rasypt_lite_derive::RasyptDecrypt;
-
-#[derive(RasyptDecrypt)]
-struct AppConfig {
-    plain_field: String,
-    #[rasypt(encrypted)]
-    secret: String,
-}
-```
-
-Applying `#[rasypt(encrypted)]` to any other type is a compile-time error.
-
-See the root workspace `README.md` for a minimal overview and the
-`rasypt-lite-cli/README.md` for CLI usage details.
+Only `String` and `Option<String>`. Tagging any other type with
+`#[rasypt(encrypted)]` is a compile-time error. Only named struct fields
+are supported.
 
 ## Features
 
-- `zeroize` – automatically implemented by default; disable it in your
-  `Cargo.toml` if you prefer to manage clearing yourself.
-
-## Notes
-
-This crate re-exports `rasypt_lite_lib::Error` for convenience. The
-`decrypt_enc_fields` method propagates decryption errors for tagged fields.
+- `zeroize` (default) — generates a `Drop` impl that auto-clears tagged
+  fields. Disable in `Cargo.toml` if you prefer manual clearing:
+  ```toml
+  [dependencies.rasypt-lite-derive]
+  version = "1"
+  default-features = false
+  ```

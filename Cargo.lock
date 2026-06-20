@@ -466,6 +466,7 @@ dependencies = [
 name = "rasypt-lite-derive"
 version = "1.0.4"
 dependencies = [
+ "proc-macro2",
  "quote",
  "rasypt-lite-lib",
  "syn",
