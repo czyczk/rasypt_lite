@@ -120,6 +120,39 @@ pub fn rasypt_decrypt_derive(input: TokenStream) -> TokenStream {
         Some(decrypt_call)
     });
 
+    let field_decryptors_with_algo = fields.iter().zip(metas.iter()).filter_map(|(f, meta)| {
+        if !meta.encrypted {
+            return None;
+        }
+        let field_name = f.ident.as_ref()?;
+        let ty = &f.ty;
+
+        let decrypt_call = if is_string_type(ty) {
+            quote! {
+                if ::rasypt_lite_lib::is_enc_value(&self.#field_name) {
+                    self.#field_name = ::rasypt_lite_lib::decrypt_enc_with(
+                        algorithm,
+                        &self.#field_name,
+                        password,
+                    )?;
+                }
+            }
+        } else {
+            quote! {
+                if let Some(ref val) = self.#field_name {
+                    if ::rasypt_lite_lib::is_enc_value(val) {
+                        self.#field_name = Some(::rasypt_lite_lib::decrypt_enc_with(
+                            algorithm,
+                            val,
+                            password,
+                        )?);
+                    }
+                }
+            }
+        };
+        Some(decrypt_call)
+    });
+
     let field_clearers = fields.iter().zip(metas.iter()).filter_map(|(f, meta)| {
         if !meta.encrypted {
             return None;
@@ -155,8 +188,20 @@ pub fn rasypt_decrypt_derive(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         impl #impl_generics #name #ty_generics #where_clause {
             /// Decrypt all `#[rasypt(encrypted)]` fields wrapped with `ENC(...)` in-place.
+            /// Uses the per-field compile-time algorithm (or the default AES-256 if not specified).
             pub fn decrypt_enc_fields(&mut self, password: &str) -> Result<(), ::rasypt_lite_lib::Error> {
                 #(#field_decryptors)*
+                Ok(())
+            }
+
+            /// Decrypt all `#[rasypt(encrypted)]` fields wrapped with `ENC(...)` in-place.
+            /// Uses the **runtime** algorithm argument, overriding any per-field compile-time algorithm.
+            pub fn decrypt_enc_fields_with_algorithm(
+                &mut self,
+                algorithm: ::rasypt_lite_lib::Algorithm,
+                password: &str,
+            ) -> Result<(), ::rasypt_lite_lib::Error> {
+                #(#field_decryptors_with_algo)*
                 Ok(())
             }
 
