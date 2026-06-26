@@ -7,6 +7,8 @@ authors.workspace = true
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/czyczk/rasypt_lite"
 homepage = "https://github.com/czyczk/rasypt_lite"
+keywords = ["jasypt", "encryption", "sm3", "sm4", "secret"]
+categories = ["cryptography", "algorithms", "authentication"]
 
 [dependencies]
 aes.workspace = true

@@ -7,6 +7,8 @@ description = "Procedural macro for deriving decryption handlers with field-leve
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/czyczk/rasypt_lite"
 homepage = "https://github.com/czyczk/rasypt_lite"
+keywords = ["jasypt", "derive", "encryption", "decryption", "secret"]
+categories = ["development-tools::procedural-macro-helpers", "cryptography"]
 
 [lib]
 proc-macro = true

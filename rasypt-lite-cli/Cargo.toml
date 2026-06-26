@@ -7,6 +7,8 @@ description = "CLI tool for Jasypt-compatible encryption/decryption"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/czyczk/rasypt_lite"
 homepage = "https://github.com/czyczk/rasypt_lite"
+keywords = ["jasypt", "cli", "encryption", "decryption", "password"]
+categories = ["command-line-utilities", "cryptography"]
 
 [[bin]]
 name = "rasypt-lite"
