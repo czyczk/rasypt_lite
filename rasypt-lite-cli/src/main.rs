@@ -6,7 +6,8 @@ const MIN_RECOMMENDED_PASSWORD_LEN: usize = 8;
 #[derive(Parser)]
 #[command(
     name = "rasypt-lite",
-    about = "Password-based encryption with PBEWithHMACSHA512AndAES_256 and SM-compliant algorithms"
+    about = "Password-based encryption with PBEWithHMACSHA512AndAES_256 and SM-compliant algorithms",
+    version
 )]
 struct Cli {
     /// Silence non-fatal warnings
