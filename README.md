@@ -63,10 +63,18 @@ rasypt-lite decrypt --input "base64..." --password "mypass" --algorithm PBEWithH
 
 | Flag | Short | Description |
 |---|---|---|
+| `--input` | `-i` | Literal value to process |
+| `--file`, `--path` | `-f` | Process a UTF-8 text file containing `DEC(...)` / `ENC(...)` markers |
+| `--in-place` | — | Overwrite the source file instead of writing transformed content to stdout |
 | `--algorithm` | `-a`, `--alg` | Algorithm name (default: `PBEWithHMACSHA512AndAES_256`) |
 | `--iterations` | — | Override PBKDF2 iteration count |
-| `--wrap` | — | Wrap output in `ENC(...)` (AES only) |
+| `--wrap` | — | Wrap literal AES output in `ENC(...)` |
 | `--quiet` | `-q` | Silence password warnings |
+
+Literal decrypt accepts both bare Base64 ciphertext and `ENC(...)`-wrapped
+ciphertext for all supported algorithms. File mode rewrites only marked values:
+`DEC(...)` becomes `ENC(...)` during encrypt, and `ENC(...)` becomes `DEC(...)`
+during decrypt.
 
 ---
 
