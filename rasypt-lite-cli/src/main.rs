@@ -108,9 +108,9 @@ fn main() {
                 rasypt_lite_lib::decrypt_enc(&input, &password)
             } else {
                 match iterations {
-                    Some(it) => rasypt_lite_lib::decrypt_with_iterations(
-                        algorithm, &password, &input, it,
-                    ),
+                    Some(it) => {
+                        rasypt_lite_lib::decrypt_with_iterations(algorithm, &password, &input, it)
+                    }
                     None => rasypt_lite_lib::decrypt_with(algorithm, &password, &input),
                 }
             };

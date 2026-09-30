@@ -3,27 +3,23 @@ members = ["rasypt-lite-lib", "rasypt-lite-cli", "rasypt-lite-derive"]
 resolver = "2"
 
 [workspace.package]
-version = "1.1.1"
+version = "1.1.2"
 edition = "2021"
 authors = ["Zenas Chen"]
 
 [workspace.dependencies]
 # Third-party
 aes = "0.9"
-assert_matches = "1.5"
-async-trait = "0.1"
-base64 = "0.22"
+base64 = "0.23"
 cbc = { version = "0.2", features = ["alloc"] }
 ghash = "0.6"
 hmac = "0.13"
 pbkdf2 = "0.13"
 rand = "0.10"
-serde = { version = "1.0", features = ["default", "derive"] }
 sha2 = "0.11"
 sm3 = "0.5"
 sm4 = "0.6"
 strum = "0.28"
-strum_macros = "0.28"
 subtle = "2"
 thiserror = "2.0"
 unicode-normalization = "0.1"

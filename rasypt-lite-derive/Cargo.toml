@@ -14,12 +14,12 @@ categories = ["development-tools::procedural-macro-helpers", "cryptography"]
 proc-macro = true
 
 [dependencies]
-syn = { version = "2", features = ["full"] }
+syn = { version = "3", features = ["full"] }
 quote = "1"
 proc-macro2 = "1"
 
 [dev-dependencies]
-rasypt-lite-lib = { path = "../rasypt-lite-lib", version = "1.1.1" }
+rasypt-lite-lib = { path = "../rasypt-lite-lib", version = "1.1.2" }
 
 [features]
 # automatically clear secret fields on Drop. Consumers can opt out by disabling
