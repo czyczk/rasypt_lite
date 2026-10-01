@@ -1,3 +1,4 @@
+use clap::builder::{PossibleValue, PossibleValuesParser, TypedValueParser};
 use clap::{Args, Parser, Subcommand};
 use rasypt_lite_lib::Algorithm;
 use std::{
@@ -9,6 +10,15 @@ use std::{
 const MIN_RECOMMENDED_PASSWORD_LEN: usize = 8;
 const ENC_PREFIX: &str = "ENC(";
 const DEC_PREFIX: &str = "DEC(";
+
+/// Value parser for `--algorithm` that advertises the valid algorithm names
+/// in help output and error messages.
+fn algorithm_parser() -> impl TypedValueParser<Value = Algorithm> {
+    let possible_values: Vec<PossibleValue> = Algorithm::all()
+        .map(|a| PossibleValue::new(<&'static str>::from(a)))
+        .collect();
+    PossibleValuesParser::new(possible_values).try_map(|name| name.parse::<Algorithm>())
+}
 
 #[derive(Parser)]
 #[command(
@@ -82,7 +92,7 @@ enum Commands {
             long = "algorithm",
             alias = "alg",
             default_value = "PBEWithHMACSHA512AndAES_256",
-            value_parser = clap::value_parser!(Algorithm)
+            value_parser = algorithm_parser()
         )]
         algorithm: Algorithm,
         /// PBKDF2 iteration count (overrides algorithm default)
@@ -102,7 +112,7 @@ enum Commands {
             long = "algorithm",
             alias = "alg",
             default_value = "PBEWithHMACSHA512AndAES_256",
-            value_parser = clap::value_parser!(Algorithm)
+            value_parser = algorithm_parser()
         )]
         algorithm: Algorithm,
         /// PBKDF2 iteration count (overrides algorithm default)

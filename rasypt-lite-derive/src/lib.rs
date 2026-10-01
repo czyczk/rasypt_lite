@@ -13,7 +13,7 @@
 //!   `clear_sensitive_fields()` so tagged fields are zeroised on drop.
 
 use proc_macro::TokenStream;
-use proc_macro2::Span;
+use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
 use syn::{parse_macro_input, spanned::Spanned, Data, DeriveInput, Fields, Ident, LitStr, Type};
 
@@ -53,7 +53,10 @@ pub fn rasypt_decrypt_derive(input: TokenStream) -> TokenStream {
             }
             Err(err) => {
                 invalid_tag_errors.push(err);
-                metas.push(FieldMeta { encrypted: false, algorithm: None });
+                metas.push(FieldMeta {
+                    encrypted: false,
+                    algorithm: None,
+                });
             }
         }
     }
@@ -65,113 +68,50 @@ pub fn rasypt_decrypt_derive(input: TokenStream) -> TokenStream {
         });
     }
 
-    let field_decryptors = fields.iter().zip(metas.iter()).filter_map(|(f, meta)| {
-        if !meta.encrypted {
-            return None;
-        }
-        let field_name = f.ident.as_ref()?;
-        let ty = &f.ty;
+    let encrypted_fields = || {
+        fields
+            .iter()
+            .zip(metas.iter())
+            .filter(|(_, meta)| meta.encrypted)
+    };
 
-        let decrypt_call = match &meta.algorithm {
-            Some(alg_name) => {
-                let alg_ident = Ident::new(alg_name, Span::call_site());
-                if is_string_type(ty) {
-                    quote! {
-                        if ::rasypt_lite_lib::is_enc_value(&self.#field_name) {
-                            self.#field_name = ::rasypt_lite_lib::decrypt_enc_with(
-                                ::rasypt_lite_lib::Algorithm::#alg_ident,
-                                &self.#field_name,
-                                password,
-                            )?;
-                        }
-                    }
-                } else {
-                    quote! {
-                        if let Some(ref val) = self.#field_name {
-                            if ::rasypt_lite_lib::is_enc_value(val) {
-                                self.#field_name = Some(::rasypt_lite_lib::decrypt_enc_with(
-                                    ::rasypt_lite_lib::Algorithm::#alg_ident,
-                                    val,
-                                    password,
-                                )?);
-                            }
-                        }
-                    }
+    // Per-field compile-time algorithm (or the default AES-256 if not specified).
+    let field_decryptors: Vec<_> = encrypted_fields()
+        .map(|(f, meta)| {
+            let algorithm = match &meta.algorithm {
+                Some(alg_name) => {
+                    let alg_ident = Ident::new(alg_name, Span::call_site());
+                    quote! { ::rasypt_lite_lib::Algorithm::#alg_ident }
                 }
-            }
-            None => {
-                if is_string_type(ty) {
-                    quote! {
-                        if ::rasypt_lite_lib::is_enc_value(&self.#field_name) {
-                            self.#field_name = ::rasypt_lite_lib::decrypt_enc(&self.#field_name, password)?;
-                        }
-                    }
-                } else {
-                    quote! {
-                        if let Some(ref val) = self.#field_name {
-                            if ::rasypt_lite_lib::is_enc_value(val) {
-                                self.#field_name = Some(::rasypt_lite_lib::decrypt_enc(val, password)?);
-                            }
-                        }
-                    }
-                }
-            }
-        };
-        Some(decrypt_call)
-    });
+                None => quote! { ::rasypt_lite_lib::Algorithm::default() },
+            };
+            field_decryptor(f, algorithm)
+        })
+        .collect();
 
-    let field_decryptors_with_algo = fields.iter().zip(metas.iter()).filter_map(|(f, meta)| {
-        if !meta.encrypted {
-            return None;
-        }
-        let field_name = f.ident.as_ref()?;
-        let ty = &f.ty;
+    // Runtime algorithm argument, overriding any per-field compile-time algorithm.
+    let field_decryptors_with_algo: Vec<_> = encrypted_fields()
+        .map(|(f, _)| field_decryptor(f, quote! { algorithm }))
+        .collect();
 
-        let decrypt_call = if is_string_type(ty) {
-            quote! {
-                if ::rasypt_lite_lib::is_enc_value(&self.#field_name) {
-                    self.#field_name = ::rasypt_lite_lib::decrypt_enc_with(
-                        algorithm,
-                        &self.#field_name,
-                        password,
-                    )?;
-                }
+    let field_clearers: Vec<_> = encrypted_fields()
+        .filter_map(|(f, _)| {
+            let field_name = f.ident.as_ref()?;
+            let ty = &f.ty;
+
+            if is_string_type(ty) {
+                Some(quote! {
+                    ::rasypt_lite_lib::clear_string(&mut self.#field_name);
+                })
+            } else if is_option_string_type(ty) {
+                Some(quote! {
+                    ::rasypt_lite_lib::clear_option_string(&mut self.#field_name);
+                })
+            } else {
+                None
             }
-        } else {
-            quote! {
-                if let Some(ref val) = self.#field_name {
-                    if ::rasypt_lite_lib::is_enc_value(val) {
-                        self.#field_name = Some(::rasypt_lite_lib::decrypt_enc_with(
-                            algorithm,
-                            val,
-                            password,
-                        )?);
-                    }
-                }
-            }
-        };
-        Some(decrypt_call)
-    });
-
-    let field_clearers = fields.iter().zip(metas.iter()).filter_map(|(f, meta)| {
-        if !meta.encrypted {
-            return None;
-        }
-        let field_name = f.ident.as_ref()?;
-        let ty = &f.ty;
-
-        if is_string_type(ty) {
-            Some(quote! {
-                ::rasypt_lite_lib::clear_string(&mut self.#field_name);
-            })
-        } else if is_option_string_type(ty) {
-            Some(quote! {
-                ::rasypt_lite_lib::clear_option_string(&mut self.#field_name);
-            })
-        } else {
-            None
-        }
-    });
+        })
+        .collect();
 
     let drop_impl = if cfg!(feature = "zeroize") {
         quote! {
@@ -217,6 +157,39 @@ pub fn rasypt_decrypt_derive(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+/// Generate the in-place decryption statements for one encrypted field,
+/// using `algorithm` as the algorithm expression.
+fn field_decryptor(field: &syn::Field, algorithm: TokenStream2) -> TokenStream2 {
+    let Some(field_name) = field.ident.as_ref() else {
+        return quote! {};
+    };
+    let ty = &field.ty;
+
+    if is_string_type(ty) {
+        quote! {
+            if ::rasypt_lite_lib::is_enc_value(&self.#field_name) {
+                self.#field_name = ::rasypt_lite_lib::decrypt_enc_with(
+                    #algorithm,
+                    &self.#field_name,
+                    password,
+                )?;
+            }
+        }
+    } else {
+        quote! {
+            if let Some(ref val) = self.#field_name {
+                if ::rasypt_lite_lib::is_enc_value(val) {
+                    self.#field_name = Some(::rasypt_lite_lib::decrypt_enc_with(
+                        #algorithm,
+                        val,
+                        password,
+                    )?);
+                }
+            }
+        }
+    }
+}
+
 fn parse_rasypt_attr(field: &syn::Field) -> Result<FieldMeta, syn::Error> {
     let mut encrypted = false;
     let mut algorithm: Option<String> = None;
@@ -240,18 +213,10 @@ fn parse_rasypt_attr(field: &syn::Field) -> Result<FieldMeta, syn::Error> {
         })?;
     }
 
-    if !encrypted {
-        // Only flag as error if there's a #[rasypt] attribute without `encrypted`
-        for attr in field.attrs.iter().filter(|a| a.path().is_ident("rasypt")) {
-            if !attr.meta.require_list().is_ok() {
-                continue;
-            }
-            // If we got here with encrypted=false, the attr had something but not `encrypted`
-            // But parse_nested_meta already returned errors for unknown options.
-        }
-    }
-
-    Ok(FieldMeta { encrypted, algorithm })
+    Ok(FieldMeta {
+        encrypted,
+        algorithm,
+    })
 }
 
 fn is_string_type(ty: &Type) -> bool {
@@ -260,7 +225,7 @@ fn is_string_type(ty: &Type) -> bool {
             .path
             .segments
             .last()
-            .map_or(false, |seg| seg.ident == "String")
+            .is_some_and(|seg| seg.ident == "String")
     } else {
         false
     }
