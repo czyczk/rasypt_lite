@@ -50,11 +50,10 @@ fn ghash_update(ghash: &mut GHash, data: &[u8]) {
     let mut padded = vec![0u8; padded_len];
     padded[..data.len()].copy_from_slice(data);
     let blocks: Vec<ghash::Block> = padded
-        .chunks_exact(SM4_BLOCK_SIZE)
-        .map(|c| {
-            let arr: [u8; 16] = c.try_into().unwrap();
-            arr.into()
-        })
+        .as_chunks::<SM4_BLOCK_SIZE>()
+        .0
+        .iter()
+        .map(|&block| block.into())
         .collect();
     if !blocks.is_empty() {
         ghash.update(&blocks);
